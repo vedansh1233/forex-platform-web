@@ -9,6 +9,8 @@ export function RequireAuth() {
 
   if (status === 'loading') return <FullPageSpinner />
   if (status === 'anonymous') {
+    // The home page sends visitors to the public landing page; deep links go to login and back
+    if (location.pathname === '/') return <Navigate to="/welcome" replace />
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
   return <Outlet />

@@ -29,14 +29,17 @@ The backend URL comes from `VITE_API_URL` (default `http://localhost:8080`; see 
 - Server state goes through TanStack Query. All query keys come from `queryKeys` in `src/api/endpoints.ts`. There is no global state library.
   - After a conversion, write the returned wallet into `queryKeys.wallet` and invalidate `queryKeys.transactions` (the prefix covers every page).
   - On wallet queries, a 404 means "no wallet yet" and is not retried.
-- **Live prices.** `components/LivePricesProvider` (mounted once in `AppLayout`) opens the single WebSocket to `/ws/prices`. It writes each message into the `queryKeys.crypto` cache and reconnects with backoff. Read prices with `hooks/useCryptoPrices`, which falls back to polling REST while the socket is down and exposes `stream` status. Don't open other sockets.
+- **Live prices.** `components/LivePricesProvider` (mounted in `AppLayout` and in the public `LandingPage`, which never render together) opens the single WebSocket to `/ws/prices`. It writes each message into the `queryKeys.crypto` cache and reconnects with backoff. Read prices with `hooks/useCryptoPrices`, which falls back to polling REST while the socket is down and exposes `stream` status. Don't open other sockets.
 - **Polling.**
   - `hooks/useOrders` polls orders every 10 s and refetches the wallet and history when an order closes.
   - `AlertBell` polls alerts every 15 s, shows the unseen count, and toasts alerts that trigger while the app is open. The Orders page marks them seen.
   - The dashboard refetches the wallet every 20 s, because crypto is valued live.
 - **Assets.** `lib/currencies.ts` mirrors the backend asset registry (`ASSETS`: 8 currencies with 2 decimals, 5 crypto with 8; keep in sync). Use `decimalsOf` and `floorTo` for amounts. `formatMoney`/`formatAmount` handle crypto (e.g. "0.0319487 BTC"). `formatRate` uses significant digits for tiny rates. `AssetSelect` groups currencies and crypto.
+- **One-click demo.** `hooks/useDemoLogin` registers a throwaway account (random `demo-…@demo.fxdesk.app` email and password, never shown), opens the wallet, buys a starter portfolio, places a BTC take-profit order and a BTC alert, and only then calls `startSession` from the auth context, so the dashboard first appears fully populated. `components/DemoButton` narrates each step. Each click creates a new user row on the backend.
+- **Command palette.** `components/CommandPalette` (in the `AppLayout` sidebar) opens on Ctrl/⌘+K: every page, buy/sell for each asset (crypto rows show the live price), alerts and log out. It renders through a portal, because the sidebar's `backdrop-filter` would trap a fixed overlay. Pages come from `lib/nav.ts`, shared with the sidebar.
 - Pages:
-  - `Dashboard`: live crypto ticker, portfolio total, holdings, recent activity.
+  - `Landing` (`/welcome`, public; anonymous visitors to `/` land here): hero with a live BTC chart that tilts toward the pointer, a scrolling FX + crypto ticker, count-up stats, features and an architecture diagram. Sections animate in through `hooks/useReveal` (`data-reveal`, staggered with `--reveal-delay`).
+  - `Dashboard`: live crypto ticker, portfolio total (animated with `CountUp`), an allocation bar (thin segmented bar, dataviz categorical slots 1–5 on dark, smallest holdings past five folded into "Other"), holdings, then the actions in `components/dashboard/`: `QuickTrade` (market buy/sell of any asset against USD, % presets), `Watchlist` (live crypto with 7-day sparklines; Buy/Sell preselect and focus `QuickTrade`, the bell sets a ±2%/±5% alert in place) and `ActiveOrders` (open orders and active alerts with distance to target, cancellable), beside recent activity.
   - `Markets`: Forex and Crypto views, `?view=crypto`.
   - `Trade`: market or limit order for any pair; reads `?from=&to=`; shows open orders.
   - `Orders`: open and closed orders, price alerts; `?alert=BTC` prefills the alert form.

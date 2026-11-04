@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { ArrowLeftRight, ArrowUpRight, CandlestickChart, Wallet } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/client'
+import { ActiveOrders } from '../components/dashboard/ActiveOrders'
+import { QuickTrade, type Side } from '../components/dashboard/QuickTrade'
+import { Watchlist } from '../components/dashboard/Watchlist'
 import { api, queryKeys } from '../api/endpoints'
 import type { WalletResponse } from '../api/types'
 import { useAuth } from '../auth/useAuth'
 import { LivePrice, StreamIndicator } from '../components/LivePrice'
+import { CountUp } from '../components/CountUp'
 import { TransactionAmounts, TransactionIcon } from '../components/TransactionSummary'
 import { Button, Card, ErrorAlert, Highlight } from '../components/ui'
 import { useCryptoPrices } from '../hooks/useCryptoPrices'
@@ -41,7 +46,36 @@ export function DashboardPage() {
 
       <WalletSection query={walletQuery} />
 
-      {walletQuery.data && <RecentActivity />}
+      {walletQuery.data && <TradingDesk wallet={walletQuery.data} />}
+
+      {walletQuery.data && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ActiveOrders />
+          <RecentActivity />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Quick trade beside the watchlist; a watchlist Buy/Sell preselects the trade and jumps to it. */
+function TradingDesk({ wallet }: { wallet: WalletResponse }) {
+  const [asset, setAsset] = useState('BTC')
+  const [side, setSide] = useState<Side>('buy')
+
+  function trade(code: string, nextSide: Side) {
+    setAsset(code)
+    setSide(nextSide)
+    const form = document.getElementById('quick-trade')
+    form?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    // Wait for the remount (key below) before focusing the new amount field
+    requestAnimationFrame(() => document.getElementById('quick-amount')?.focus({ preventScroll: true }))
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
+      <QuickTrade key={`${asset}-${side}`} wallet={wallet} asset={asset} side={side} onAssetChange={setAsset} onSideChange={setSide} />
+      <Watchlist wallet={wallet} onTrade={trade} />
     </div>
   )
 }
@@ -130,6 +164,8 @@ function WalletSection({ query }: { query: UseQueryResult<WalletResponse, Error>
   const wallet = query.data
   const total = wallet.totalValue ?? wallet.balance
   const foreign = wallet.holdings.filter((h) => h.currency !== wallet.currency)
+  const parts = allocationOf(wallet)
+  const partByCode = new Map(parts?.map((p) => [p.key, p]))
 
   return (
     <Card className="relative overflow-hidden">
@@ -142,7 +178,11 @@ function WalletSection({ query }: { query: UseQueryResult<WalletResponse, Error>
             Demo wallet · total value in {wallet.currency}
           </div>
           <p className="mt-3 font-mono text-4xl font-semibold tracking-tight sm:text-5xl">
-            {wallet.totalValue === null && foreign.length > 0 ? '—' : formatMoney(total, wallet.currency)}
+            {wallet.totalValue === null && foreign.length > 0 ? (
+              '—'
+            ) : (
+              <CountUp value={total} format={(n) => formatMoney(n, wallet.currency)} />
+            )}
           </p>
           <p className="mt-2 text-sm text-ink-400">
             {wallet.valuationDate ? `Valued at rates from ${formatLongDay(wallet.valuationDate)}` : `Opened ${formatDate(wallet.createdAt)}`}
@@ -167,12 +207,38 @@ function WalletSection({ query }: { query: UseQueryResult<WalletResponse, Error>
         </div>
       </div>
 
+      {parts && parts.length > 1 && (
+        <div className="mt-6">
+          <p className="mb-2 text-xs font-medium text-ink-400">Allocation</p>
+          <div
+            role="img"
+            aria-label={`Allocation: ${parts.map((p) => `${p.label} ${formatShare(p.share)}`).join(', ')}`}
+            className="flex h-2 origin-left animate-[grow-x_1.1s_cubic-bezier(0.22,1,0.36,1)_both] gap-0.5 overflow-hidden rounded-full"
+          >
+            {parts.map((p) => (
+              <span
+                key={p.key}
+                title={`${p.label}: ${formatShare(p.share)}`}
+                className="h-full transition-[flex-grow] duration-700"
+                style={{ flexGrow: p.share, flexBasis: 0, backgroundColor: p.color }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <ul className="mt-6 grid gap-3 border-t border-ink-800 pt-6 sm:grid-cols-2 lg:grid-cols-4">
-        {wallet.holdings.map((h) => (
+        {wallet.holdings.map((h) => {
+          const part = partByCode.get(h.currency)
+          return (
           <li key={h.currency} className="rounded-xl border border-transparent bg-ink-800/60 px-4 py-3 transition duration-300 hover:-translate-y-0.5 hover:border-accent-500/30 hover:bg-ink-800">
-            <div className="flex items-center justify-between text-xs text-ink-400">
-              <span className="font-mono font-semibold text-ink-300">{h.currency}</span>
-              <span className="truncate pl-2">{currencyName(h.currency)}</span>
+            <div className="flex items-center gap-2 text-xs text-ink-400">
+              <span className="flex shrink-0 items-center gap-1.5 font-mono font-semibold text-ink-300">
+                {part && <span className="size-2 rounded-full" style={{ backgroundColor: part.color }} aria-hidden />}
+                {h.currency}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{currencyName(h.currency)}</span>
+              {part && parts && parts.length > 1 && <span className="shrink-0 font-mono text-ink-300">{formatShare(part.share)}</span>}
             </div>
             <p className="mt-1 font-mono text-lg font-semibold tabular-nums">{formatAmount(h.amount, h.currency)}</p>
             {h.currency !== wallet.currency && (
@@ -181,10 +247,50 @@ function WalletSection({ query }: { query: UseQueryResult<WalletResponse, Error>
               </p>
             )}
           </li>
-        ))}
+          )
+        })}
       </ul>
     </Card>
   )
+}
+
+/**
+ * Categorical slots 1–5 of the dataviz palette, stepped for a dark surface (validated against
+ * ink-900: CVD ΔE ≥ 8.4, contrast ≥ 3:1), plus a neutral for "Other".
+ */
+const ALLOCATION_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181']
+const OTHER_COLOR = '#7d8aa3'
+
+interface AllocationPart {
+  key: string
+  label: string
+  share: number
+  color: string
+}
+
+/**
+ * Each holding's share of the total, in the wallet's order (USD, currencies, crypto) so a
+ * holding keeps its color. Past five, the smallest fold into "Other". Null if any value is unknown.
+ */
+function allocationOf(wallet: WalletResponse): AllocationPart[] | null {
+  const values = wallet.holdings.map((h) => ({ code: h.currency, value: h.currency === wallet.currency ? h.amount : h.valueInBase }))
+  if (values.some((v) => v.value === null)) return null
+  const total = values.reduce((sum, v) => sum + (v.value ?? 0), 0)
+  if (total <= 0) return null
+
+  const kept = new Set(
+    [...values].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, values.length > 6 ? 5 : 6).map((v) => v.code),
+  )
+  const parts: AllocationPart[] = values
+    .filter((v) => kept.has(v.code) && (v.value ?? 0) > 0)
+    .map((v, i) => ({ key: v.code, label: v.code, share: (v.value ?? 0) / total, color: ALLOCATION_COLORS[i] ?? OTHER_COLOR }))
+  const otherShare = values.filter((v) => !kept.has(v.code)).reduce((sum, v) => sum + (v.value ?? 0), 0) / total
+  if (otherShare > 0) parts.push({ key: 'other', label: 'Other', share: otherShare, color: OTHER_COLOR })
+  return parts
+}
+
+function formatShare(share: number) {
+  return share >= 0.995 ? '100%' : share < 0.001 ? '<0.1%' : `${(share * 100).toFixed(share < 0.1 ? 1 : 0)}%`
 }
 
 function RecentActivity() {
@@ -212,11 +318,14 @@ function RecentActivity() {
           {query.data.items.map((tx) => (
             <li key={tx.id} className="flex flex-wrap items-center gap-3 px-6 py-3">
               <TransactionIcon tx={tx} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{transactionTitle(tx)}</p>
-                <p className="text-xs text-ink-400">{formatDateTime(tx.createdAt)}</p>
+              {/* In a narrow column the amounts drop below the title instead of squeezing it */}
+              <div className="min-w-[8.5rem] flex-1">
+                <p className="text-sm font-medium whitespace-nowrap">{transactionTitle(tx)}</p>
+                <p className="text-xs whitespace-nowrap text-ink-400">{formatDateTime(tx.createdAt)}</p>
               </div>
-              <TransactionAmounts tx={tx} />
+              <div className="ml-auto text-right">
+                <TransactionAmounts tx={tx} />
+              </div>
             </li>
           ))}
         </ul>

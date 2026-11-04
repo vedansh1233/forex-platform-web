@@ -1,21 +1,13 @@
 import clsx from 'clsx'
-import { ArrowLeftRight, Calculator, CandlestickChart, History, LayoutDashboard, ListChecks, LogOut, UserRound } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { initials } from '../lib/format'
+import { NAV_ITEMS } from '../lib/nav'
 import { AlertBell } from './AlertBell'
+import { CommandPalette } from './CommandPalette'
 import { LivePricesProvider } from './LivePricesProvider'
 import { Logo } from './Logo'
-
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/markets', label: 'Markets', icon: CandlestickChart, end: false },
-  { to: '/trade', label: 'Trade', icon: ArrowLeftRight, end: false },
-  { to: '/orders', label: 'Orders', icon: ListChecks, end: false },
-  { to: '/tools', label: 'Tools', icon: Calculator, end: false },
-  { to: '/history', label: 'History', icon: History, end: false },
-  { to: '/profile', label: 'Profile', icon: UserRound, end: false },
-]
 
 export function AppLayout() {
   const { user, logout } = useAuth()
@@ -25,15 +17,17 @@ export function AppLayout() {
       <div className="min-h-dvh md:grid md:grid-cols-[15rem_1fr]">
         {/* Sidebar (desktop) / top bar (mobile) */}
         <aside className="glass sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-3 md:h-dvh md:flex-col md:items-stretch md:justify-start md:border-r md:border-b-0 md:px-4 md:py-6">
-          <div className="shrink-0 md:mb-8 md:px-2">
+          <div className="shrink-0 md:mb-6 md:px-2">
             <Logo compact />
           </div>
+
+          <CommandPalette />
 
           <nav
             className="flex min-w-0 gap-0.5 overflow-x-auto [scrollbar-width:none] md:flex-col md:gap-1 md:overflow-visible"
             aria-label="Main"
           >
-            {navItems.map(({ to, label, icon: Icon, end }) => (
+            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}

@@ -179,7 +179,84 @@
   }
 }
 
+@layer components {
+  /* Sections that slide in when scrolled into view (see hooks/useReveal). */
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  [data-reveal][data-shown] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* 3D tilt toward the pointer (--rx/--ry set by lib/pointer.tiltToPointer). */
+  .tilt {
+    transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 0.25s ease-out;
+    transform-style: preserve-3d;
+  }
+
+  /* Dashed connector whose dashes flow left to right, like data moving down a wire. */
+  .wire {
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--color-accent-400) 0 8px, transparent 8px 16px);
+    background-size: 32px 2px;
+    animation: wire-flow 0.9s linear infinite;
+    opacity: 0.7;
+  }
+  .wire-v {
+    width: 2px;
+    background: repeating-linear-gradient(180deg, var(--color-accent-400) 0 8px, transparent 8px 16px);
+    background-size: 2px 32px;
+    animation: wire-flow-v 0.9s linear infinite;
+    opacity: 0.7;
+  }
+
+  /* Text filled with a slowly moving emerald gradient. */
+  .text-shine {
+    background: linear-gradient(110deg, var(--color-accent-300) 0%, #fff 40%, var(--color-accent-400) 60%, var(--color-accent-300) 100%);
+    background-size: 250% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: shine 6s linear infinite;
+  }
+
+  /* Keyboard hint, e.g. Ctrl K. */
+  .kbd {
+    @apply rounded border border-ink-600 bg-ink-800 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-300;
+  }
+}
+
+@keyframes wire-flow {
+  to {
+    background-position: 32px 0;
+  }
+}
+@keyframes wire-flow-v {
+  to {
+    background-position: 0 32px;
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes shine {
+  to {
+    background-position: -250% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
   *,
   *::before,
   *::after {

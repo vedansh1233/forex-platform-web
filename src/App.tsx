@@ -7,6 +7,7 @@ import { MarketsPage } from './pages/MarketsPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { ToolsPage } from './pages/ToolsPage'
 import { TradePage } from './pages/TradePage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -37,6 +38,7 @@ const router = createBrowserRouter([
       },
     ],
   },
+  { path: '/welcome', element: <LandingPage /> },
   { path: '*', element: <NotFoundPage /> },
 ])
 

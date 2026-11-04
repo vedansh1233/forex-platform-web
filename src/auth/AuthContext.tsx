@@ -56,9 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: status === 'authenticated' ? (meQuery.data ?? null) : null,
       login,
       register,
+      startSession,
       logout,
     }
-  }, [token, meQuery.data, meQuery.isError, login, register, logout])
+  }, [token, meQuery.data, meQuery.isError, login, register, startSession, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { AuthShell } from '../components/AuthShell'
+import { DemoButton } from '../components/DemoButton'
 import { Button, ErrorAlert, Field } from '../components/ui'
 
 export function LoginPage() {
@@ -66,6 +67,12 @@ export function LoginPage() {
           Log in
         </Button>
       </form>
+      <div className="my-5 flex items-center gap-3 text-xs text-ink-400" aria-hidden>
+        <span className="h-px flex-1 bg-ink-700" />
+        or
+        <span className="h-px flex-1 bg-ink-700" />
+      </div>
+      <DemoButton quiet />
     </AuthShell>
   )
 }
