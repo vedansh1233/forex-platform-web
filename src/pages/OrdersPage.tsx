@@ -18,10 +18,10 @@ export function OrdersPage() {
   const alertBase = searchParams.get('alert')
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header>
-        <p className="text-sm text-ink-400">Orders</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Orders and alerts</h1>
+        <p className="eyebrow">Orders</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Orders and alerts</h1>
         <p className="mt-2 max-w-2xl text-sm text-ink-400">
           Limit orders convert automatically when a rate reaches your target. Alerts just tell you. Both are checked every 10 seconds;
           crypto moves continuously, while currency rates update once per business day.

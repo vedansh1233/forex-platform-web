@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 import { useId } from 'react'
+import { trackPointer } from '../lib/pointer'
 
 // --- Button ---
 
@@ -13,7 +14,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: 'bg-accent-500 text-ink-950 hover:bg-accent-400 disabled:bg-accent-600/60',
+  primary: 'btn-glow text-ink-950',
   secondary: 'bg-ink-700 text-ink-100 hover:bg-ink-600 disabled:opacity-60',
   ghost: 'text-ink-300 hover:bg-ink-800 hover:text-ink-100 disabled:opacity-60',
 }
@@ -22,7 +23,7 @@ export function Button({ variant = 'primary', loading, className, children, disa
   return (
     <button
       className={clsx(
-        'inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed',
+        'inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-[color,background-color,box-shadow,transform] disabled:cursor-not-allowed',
         buttonVariants[variant],
         className,
       )}
@@ -137,7 +138,32 @@ export function Segmented<T extends string | number>({
 // --- Card ---
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={clsx('rounded-2xl border border-ink-700 bg-ink-900 p-6', className)}>{children}</div>
+  return (
+    <div
+      onPointerMove={trackPointer}
+      className={clsx(
+        'spotlight rounded-2xl border border-ink-700 bg-ink-900/80 p-6 transition-colors duration-300 hover:border-ink-600',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+// --- Headings ---
+
+/** A word framed like a selected layer in a design tool. */
+export function Highlight({ children }: { children: ReactNode }) {
+  return (
+    <span className="mark-box">
+      <span className="handle" aria-hidden />
+      <span className="handle" aria-hidden />
+      <span className="handle" aria-hidden />
+      <span className="handle" aria-hidden />
+      {children}
+    </span>
+  )
 }
 
 // --- Alert ---

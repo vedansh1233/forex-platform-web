@@ -25,10 +25,10 @@ export function HistoryPage() {
   const data = query.data
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header>
-        <p className="text-sm text-ink-400">History</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Transactions</h1>
+        <p className="eyebrow">History</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Transactions</h1>
       </header>
 
       {query.isPending && <div className="h-80 animate-pulse rounded-2xl bg-ink-900" aria-label="Loading transactions" />}

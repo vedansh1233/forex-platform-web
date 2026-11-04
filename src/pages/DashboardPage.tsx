@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
-import { ArrowLeftRight, CandlestickChart, Wallet } from 'lucide-react'
+import { ArrowLeftRight, ArrowUpRight, CandlestickChart, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/client'
 import { api, queryKeys } from '../api/endpoints'
@@ -7,7 +7,7 @@ import type { WalletResponse } from '../api/types'
 import { useAuth } from '../auth/useAuth'
 import { LivePrice, StreamIndicator } from '../components/LivePrice'
 import { TransactionAmounts, TransactionIcon } from '../components/TransactionSummary'
-import { Button, Card, ErrorAlert } from '../components/ui'
+import { Button, Card, ErrorAlert, Highlight } from '../components/ui'
 import { useCryptoPrices } from '../hooks/useCryptoPrices'
 import { currencyName } from '../lib/currencies'
 import { formatAmount, formatDate, formatDateTime, formatLongDay, formatMoney, formatPercent } from '../lib/format'
@@ -29,10 +29,12 @@ export function DashboardPage() {
   })
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header>
-        <p className="text-sm text-ink-400">Dashboard</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Welcome, {firstName}</h1>
+        <p className="eyebrow">Dashboard</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+          Welcome, <Highlight>{firstName}</Highlight>
+        </h1>
       </header>
 
       <CryptoTicker />
@@ -50,24 +52,32 @@ function CryptoTicker() {
   if (!prices.data) return <div className="h-[74px] animate-pulse rounded-2xl bg-ink-900" aria-label="Loading prices" />
 
   return (
-    <section aria-label="Live crypto prices" className="rounded-2xl border border-ink-700 bg-ink-900 px-4 py-3">
+    <section aria-label="Live crypto prices" className="rounded-2xl border border-ink-700 bg-ink-900/80 px-4 py-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <StreamIndicator status={prices.stream} />
-        <Link to="/markets?view=crypto" className="text-xs font-medium text-accent-300 hover:underline">
+        <Link to="/markets?view=crypto" className="group inline-flex items-center gap-1 text-xs font-medium text-accent-300">
           Crypto markets
+          <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden />
         </Link>
       </div>
-      <ul className="flex flex-wrap gap-x-6 gap-y-1.5">
-        {prices.data.prices.map((p) => (
-          <li key={p.symbol} className="flex shrink-0 items-baseline gap-2">
-            <span className="font-mono text-xs font-semibold text-ink-300">{p.symbol}</span>
-            <LivePrice price={p.priceUsd} className="text-sm" />
-            <span className={p.change24h >= 0 ? 'font-mono text-xs text-accent-300' : 'font-mono text-xs text-rose-300'}>
-              {formatPercent(p.change24h)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* Four copies of the list scroll as a loop (the track moves by half its width); only the first is read out. */}
+      <div className="marquee">
+        <div className="marquee-track">
+          {[0, 1, 2, 3].map((copy) => (
+            <ul key={copy} className="flex shrink-0" aria-hidden={copy > 0 || undefined}>
+              {prices.data.prices.map((p) => (
+                <li key={p.symbol} className="flex shrink-0 items-baseline gap-2 border-r border-ink-700/70 px-5">
+                  <span className="font-mono text-xs font-semibold text-ink-300">{p.symbol}</span>
+                  <LivePrice price={p.priceUsd} className="text-sm" />
+                  <span className={p.change24h >= 0 ? 'font-mono text-xs text-accent-300' : 'font-mono text-xs text-rose-300'}>
+                    {formatPercent(p.change24h)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
+      </div>
       {prices.data.source === 'SIMULATED' && <p className="mt-1 text-xs text-amber-200">Simulated prices: the live crypto feed is unavailable.</p>}
     </section>
   )
@@ -142,7 +152,7 @@ function WalletSection({ query }: { query: UseQueryResult<WalletResponse, Error>
         <div className="flex gap-2">
           <Link
             to="/trade"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent-500 px-4 text-sm font-semibold text-ink-950 hover:bg-accent-400"
+            className="btn-glow inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-ink-950"
           >
             <ArrowLeftRight className="size-4" aria-hidden />
             Trade
@@ -159,7 +169,7 @@ function WalletSection({ query }: { query: UseQueryResult<WalletResponse, Error>
 
       <ul className="mt-6 grid gap-3 border-t border-ink-800 pt-6 sm:grid-cols-2 lg:grid-cols-4">
         {wallet.holdings.map((h) => (
-          <li key={h.currency} className="rounded-xl bg-ink-800/60 px-4 py-3">
+          <li key={h.currency} className="rounded-xl border border-transparent bg-ink-800/60 px-4 py-3 transition duration-300 hover:-translate-y-0.5 hover:border-accent-500/30 hover:bg-ink-800">
             <div className="flex items-center justify-between text-xs text-ink-400">
               <span className="font-mono font-semibold text-ink-300">{h.currency}</span>
               <span className="truncate pl-2">{currencyName(h.currency)}</span>

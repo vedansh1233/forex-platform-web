@@ -7,7 +7,7 @@ import { api, queryKeys } from '../api/endpoints'
 import { CryptoMarkets } from '../components/CryptoMarkets'
 import { RateChart } from '../components/RateChart'
 import { SourceBadge } from '../components/SourceBadge'
-import { Card, ErrorAlert, Segmented, Select } from '../components/ui'
+import { Card, ErrorAlert, Highlight, Segmented, Select } from '../components/ui'
 import { CURRENCIES, currencyName } from '../lib/currencies'
 import { formatPercent, formatRate } from '../lib/format'
 
@@ -25,11 +25,13 @@ export function MarketsPage() {
   const view: View = searchParams.get('view') === 'crypto' ? 'crypto' : 'forex'
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-ink-400">Markets</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{view === 'crypto' ? 'Crypto prices' : 'Exchange rates'}</h1>
+          <p className="eyebrow">Markets</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            {view === 'crypto' ? 'Crypto' : 'Exchange'} <Highlight>{view === 'crypto' ? 'prices' : 'rates'}</Highlight>
+          </h1>
         </div>
         <Segmented
           label="Market"

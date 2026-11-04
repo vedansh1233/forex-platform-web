@@ -6,7 +6,7 @@ import { Calculators } from '../components/tools/Calculators'
 import { CrossRates } from '../components/tools/CrossRates'
 import { MarketSessions } from '../components/tools/MarketSessions'
 import { StrengthCorrelation } from '../components/tools/StrengthCorrelation'
-import { ErrorAlert } from '../components/ui'
+import { ErrorAlert, Highlight } from '../components/ui'
 import { withUsd } from '../lib/fx'
 
 export function ToolsPage() {
@@ -20,11 +20,13 @@ export function ToolsPage() {
   const usd = ratesQuery.data ? withUsd(ratesQuery.data.rates) : null
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-ink-400">Tools</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Forex toolkit</h1>
+          <p className="eyebrow">Tools</p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Forex <Highlight>toolkit</Highlight>
+          </h1>
         </div>
         {ratesQuery.data && <SourceBadge source={ratesQuery.data.source} date={ratesQuery.data.date} />}
       </header>

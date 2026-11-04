@@ -8,7 +8,7 @@ import type { OrderResponse, TransactionResponse, WalletResponse } from '../api/
 import { AssetSelect } from '../components/AssetSelect'
 import { OrderList } from '../components/OrderList'
 import { SourceBadge } from '../components/SourceBadge'
-import { Button, Card, ErrorAlert, Field, Segmented } from '../components/ui'
+import { Button, Card, ErrorAlert, Field, Highlight, Segmented } from '../components/ui'
 import { useOrders } from '../hooks/useOrders'
 import { usePairSource } from '../hooks/usePairSource'
 import { decimalsOf, floorTo, isAsset, isCrypto } from '../lib/currencies'
@@ -36,10 +36,12 @@ export function TradePage() {
   const walletQuery = useQuery({ queryKey: queryKeys.wallet, queryFn: api.myWallet, retry: false })
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header>
-        <p className="text-sm text-ink-400">Trade</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Trade currencies and crypto</h1>
+        <p className="eyebrow">Trade</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+          Trade <Highlight>currencies</Highlight> and crypto
+        </h1>
       </header>
 
       {walletQuery.isPending && <div className="h-80 animate-pulse rounded-2xl bg-ink-900" aria-label="Loading wallet" />}

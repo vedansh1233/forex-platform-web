@@ -49,6 +49,7 @@ The backend URL comes from `VITE_API_URL` (default `http://localhost:8080`; see 
 ## Conventions
 
 - TypeScript is strict, with `verbatimModuleSyntax` (use `import type`) and `erasableSyntaxOnly` (no enums, no constructor parameter properties).
-- Styling uses Tailwind v4 utilities only. Theme tokens (`ink-*`, `accent-*`, fonts) live in `src/index.css` under `@theme`. Reuse the primitives in `components/ui.tsx` (`Button`, `Field`, `Card`, `ErrorAlert`).
+- Styling uses Tailwind v4 utilities. Theme tokens (`ink-*`, `accent-*`, fonts incl. `font-display`) live in `src/index.css` under `@theme`. Reuse the primitives in `components/ui.tsx` (`Button`, `Field`, `Card`, `Highlight`, `ErrorAlert`).
+- Visual effects are a few named classes in `src/index.css` (`@layer components`): `eyebrow` (label above a page `h1`), `mark-box` (via `Highlight`, one word per heading), `btn-glow` (primary actions), `spotlight` (pointer-following light; pair with `lib/pointer.trackPointer`, which `Card` does), `glass`, `stagger` (on each page root), `marquee`. The body has a fixed grid-and-glow backdrop. All motion is disabled under `prefers-reduced-motion`.
 - Show backend validation with `Field error={apiError.fieldErrors.<field>}`. Show the general `ErrorAlert` only when there are no field errors.
 - Icons come from `lucide-react`, with `aria-hidden` on decorative ones.

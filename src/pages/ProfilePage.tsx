@@ -15,10 +15,10 @@ export function ProfilePage() {
   ]
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <header>
-        <p className="text-sm text-ink-400">Account</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Profile</h1>
+        <p className="eyebrow">Account</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Profile</h1>
       </header>
 
       <Card>
