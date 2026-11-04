@@ -4,19 +4,31 @@ import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../api/client'
 import { api, queryKeys } from '../api/endpoints'
-import type { TransactionResponse, WalletResponse } from '../api/types'
+import type { OrderResponse, TransactionResponse, WalletResponse } from '../api/types'
+import { AssetSelect } from '../components/AssetSelect'
+import { OrderList } from '../components/OrderList'
 import { SourceBadge } from '../components/SourceBadge'
-import { Button, Card, ErrorAlert, Field, Select } from '../components/ui'
-import { CURRENCIES, currencyName } from '../lib/currencies'
+import { Button, Card, ErrorAlert, Field, Segmented } from '../components/ui'
+import { useOrders } from '../hooks/useOrders'
+import { usePairSource } from '../hooks/usePairSource'
+import { decimalsOf, floorTo, isAsset, isCrypto } from '../lib/currencies'
 import { formatAmount, formatMoney, formatRate } from '../lib/format'
 
-function initialCurrency(value: string | null, fallback: string): string {
-  return value && (CURRENCIES as readonly string[]).includes(value) ? value : fallback
+type Mode = 'market' | 'limit'
+
+function initialAsset(value: string | null, fallback: string): string {
+  return isAsset(value) ? value : fallback
 }
 
-/** Truncate (not round) to 2 decimals, matching the backend's round-down. */
-function floor2(value: number): number {
-  return Math.floor(value * 100 + 1e-9) / 100
+/** Number of decimal places typed, e.g. "1.250" -> 3. */
+function decimalsIn(text: string): number {
+  const dot = text.indexOf('.')
+  return dot < 0 ? 0 : text.length - dot - 1
+}
+
+/** A rate as plain text for an input: enough significant digits, no thousands separators. */
+function rateInput(rate: number): string {
+  return rate >= 1 ? rate.toFixed(rate >= 100 ? 2 : 5) : rate.toPrecision(6)
 }
 
 export function TradePage() {
@@ -27,7 +39,7 @@ export function TradePage() {
     <div className="flex flex-col gap-8">
       <header>
         <p className="text-sm text-ink-400">Trade</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Convert currencies</h1>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Trade currencies and crypto</h1>
       </header>
 
       {walletQuery.isPending && <div className="h-80 animate-pulse rounded-2xl bg-ink-900" aria-label="Loading wallet" />}
@@ -45,34 +57,59 @@ export function TradePage() {
         ))}
 
       {walletQuery.data && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
-          <ConvertForm
-            wallet={walletQuery.data}
-            initialFrom={initialCurrency(searchParams.get('from'), 'USD')}
-            initialTo={initialCurrency(searchParams.get('to'), 'EUR')}
-          />
-          <BalancesCard wallet={walletQuery.data} />
-        </div>
+        <>
+          <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+            <TradeForm
+              wallet={walletQuery.data}
+              initialFrom={initialAsset(searchParams.get('from'), 'USD')}
+              initialTo={initialAsset(searchParams.get('to'), 'EUR')}
+            />
+            <BalancesCard wallet={walletQuery.data} />
+          </div>
+          <OpenOrders />
+        </>
       )}
     </div>
   )
 }
 
-function ConvertForm({ wallet, initialFrom, initialTo }: { wallet: WalletResponse; initialFrom: string; initialTo: string }) {
+function TradeForm({ wallet, initialFrom, initialTo }: { wallet: WalletResponse; initialFrom: string; initialTo: string }) {
   const queryClient = useQueryClient()
+  const [mode, setMode] = useState<Mode>('market')
   const [from, setFrom] = useState(initialFrom)
   const [to, setTo] = useState(initialFrom === initialTo ? (initialFrom === 'USD' ? 'EUR' : 'USD') : initialTo)
   const [amountText, setAmountText] = useState('')
+  const [targetText, setTargetText] = useState('')
   const [lastTrade, setLastTrade] = useState<TransactionResponse | null>(null)
+  const [lastOrder, setLastOrder] = useState<OrderResponse | null>(null)
 
-  const ratesQuery = useQuery({ queryKey: queryKeys.rates(from), queryFn: () => api.rates(from) })
-  const rate = ratesQuery.data?.rates[to]
+  const crypto = isCrypto(from) || isCrypto(to)
+  const quoteQuery = useQuery({
+    queryKey: queryKeys.quote(from, to),
+    queryFn: () => api.quote(from, to),
+    // Crypto moves by the second; currency rates once a day
+    refetchInterval: crypto ? 5_000 : 60_000,
+  })
+  const rate = quoteQuery.data?.rate
+  const source = usePairSource(from, to)
 
+  const fromDecimals = decimalsOf(from)
+  const toDecimals = decimalsOf(to)
   const available = wallet.holdings.find((h) => h.currency === from)?.amount ?? 0
   const amount = Number(amountText)
   const amountValid = amountText !== '' && Number.isFinite(amount) && amount > 0
+  const tooManyDecimals = amountValid && decimalsIn(amountText) > fromDecimals
   const tooMuch = amountValid && amount > available
-  const estimate = amountValid && rate ? floor2(amount * rate) : null
+  const target = Number(targetText)
+  const targetValid = targetText !== '' && Number.isFinite(target) && target > 0
+
+  const effectiveRate = mode === 'limit' ? (targetValid ? target : undefined) : rate
+  const estimate = amountValid && effectiveRate ? floorTo(amount * effectiveRate, toDecimals) : null
+
+  function reset() {
+    setLastTrade(null)
+    setLastOrder(null)
+  }
 
   const convert = useMutation({
     mutationFn: api.convert,
@@ -83,101 +120,143 @@ function ConvertForm({ wallet, initialFrom, initialTo }: { wallet: WalletRespons
       setAmountText('')
     },
   })
-  const fieldErrors = convert.error instanceof ApiError ? convert.error.fieldErrors : {}
+  const placeOrder = useMutation({
+    mutationFn: api.placeOrder,
+    onSuccess: (order) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.orders })
+      setLastOrder(order)
+      setAmountText('')
+    },
+  })
+  const active = mode === 'market' ? convert : placeOrder
+  const fieldErrors = active.error instanceof ApiError ? active.error.fieldErrors : {}
 
-  function swap() {
-    setFrom(to)
-    setTo(from)
-    setLastTrade(null)
+  function choose(side: 'from' | 'to', next: string) {
+    if (side === 'from') {
+      if (next === to) setTo(from)
+      setFrom(next)
+    } else {
+      if (next === from) setFrom(to)
+      setTo(next)
+    }
+    setTargetText('')
+    reset()
   }
+
+  function changeMode(next: Mode) {
+    setMode(next)
+    reset()
+  }
+
+  const canSubmit = amountValid && !tooMuch && !tooManyDecimals && (mode === 'market' ? rate !== undefined : targetValid)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!amountValid || tooMuch) return
-    setLastTrade(null)
-    convert.mutate({ from, to, amount })
+    if (!canSubmit) return
+    reset()
+    if (mode === 'market') convert.mutate({ from, to, amount })
+    else placeOrder.mutate({ from, to, amount, targetRate: target })
   }
+
+  const amountError = tooManyDecimals
+    ? `${from} amounts can have at most ${fromDecimals} decimal places`
+    : tooMuch
+      ? `You only have ${formatAmount(available, from)} ${from}`
+      : fieldErrors.amount
 
   return (
     <Card>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
-        <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
-          <Select
-            label="From"
-            value={from}
-            onChange={(e) => {
-              const next = e.target.value
-              if (next === to) setTo(from)
-              setFrom(next)
-              setLastTrade(null)
-            }}
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c} · {currencyName(c)}
-              </option>
-            ))}
-          </Select>
+        <Segmented
+          label="Order type"
+          options={[
+            { value: 'market', label: 'Market' },
+            { value: 'limit', label: 'Limit order' },
+          ]}
+          value={mode}
+          onChange={changeMode}
+        />
 
+        <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+          <AssetSelect label="From" value={from} onChange={(e) => choose('from', e.target.value)} />
           <button
             type="button"
-            onClick={swap}
+            onClick={() => {
+              setFrom(to)
+              setTo(from)
+              setTargetText('')
+              reset()
+            }}
             className="mx-auto grid size-10 place-items-center rounded-lg border border-ink-700 text-ink-300 transition-colors hover:bg-ink-800 hover:text-ink-100"
-            aria-label="Swap currencies"
-            title="Swap currencies"
+            aria-label="Swap assets"
+            title="Swap assets"
           >
             <ArrowDownUp className="size-4 sm:rotate-90" aria-hidden />
           </button>
-
-          <Select
-            label="To"
-            value={to}
-            onChange={(e) => {
-              const next = e.target.value
-              if (next === from) setFrom(to)
-              setTo(next)
-              setLastTrade(null)
-            }}
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c} · {currencyName(c)}
-              </option>
-            ))}
-          </Select>
+          <AssetSelect label="To" value={to} onChange={(e) => choose('to', e.target.value)} />
         </div>
 
-        <div>
-          <Field
-            label={`Amount (${from})`}
-            type="number"
-            inputMode="decimal"
-            min="0.01"
-            step="0.01"
-            placeholder="0.00"
-            value={amountText}
-            onChange={(e) => {
-              setAmountText(e.target.value)
-              setLastTrade(null)
-            }}
-            error={tooMuch ? `You only have ${formatAmount(available, from)} ${from}` : fieldErrors.amount}
-            hint={`Available: ${formatAmount(available, from)} ${from}`}
-          />
-          {available > 0 && (
-            <button
-              type="button"
-              onClick={() => setAmountText(floor2(available).toFixed(2))}
-              className="mt-1.5 text-xs font-semibold text-accent-300 hover:underline"
-            >
-              Use max
-            </button>
+        <div className={mode === 'limit' ? 'grid gap-4 sm:grid-cols-2' : undefined}>
+          <div>
+            <Field
+              label={`Amount (${from})`}
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step={10 ** -fromDecimals}
+              placeholder={(0).toFixed(fromDecimals)}
+              value={amountText}
+              onChange={(e) => {
+                setAmountText(e.target.value)
+                reset()
+              }}
+              error={amountError}
+              hint={`Available: ${formatAmount(available, from)} ${from}`}
+            />
+            {available > 0 && (
+              <button
+                type="button"
+                onClick={() => setAmountText(floorTo(available, fromDecimals).toFixed(fromDecimals))}
+                className="mt-1.5 text-xs font-semibold text-accent-300 hover:underline"
+              >
+                Use max
+              </button>
+            )}
+          </div>
+          {mode === 'limit' && (
+            <div>
+              <Field
+                label={`Target rate (${to} per 1 ${from})`}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="any"
+                placeholder={rate ? rateInput(rate) : ''}
+                value={targetText}
+                onChange={(e) => {
+                  setTargetText(e.target.value)
+                  reset()
+                }}
+                error={fieldErrors.targetRate}
+                hint={rate ? `Now ${formatRate(rate)}. Fills when the rate reaches this or better.` : 'Fills when the rate reaches this or better.'}
+              />
+              {rate !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setTargetText(rateInput(rate))}
+                  className="mt-1.5 text-xs font-semibold text-accent-300 hover:underline"
+                >
+                  Use current rate
+                </button>
+              )}
+            </div>
           )}
         </div>
 
         {/* Quote preview */}
         <div className="rounded-xl border border-ink-800 bg-ink-950/60 p-4">
-          {ratesQuery.isError ? (
-            <p className="text-sm text-red-300">{ratesQuery.error.message}</p>
+          {quoteQuery.isError ? (
+            <p className="text-sm text-red-300">{quoteQuery.error.message}</p>
           ) : rate === undefined ? (
             <div className="h-12 animate-pulse rounded bg-ink-800" aria-label="Loading quote" />
           ) : (
@@ -186,17 +265,17 @@ function ConvertForm({ wallet, initialFrom, initialTo }: { wallet: WalletRespons
                 <span className="text-ink-400">
                   1 {from} = <span className="font-mono text-ink-100">{formatRate(rate)}</span> {to}
                 </span>
-                {ratesQuery.data && <SourceBadge source={ratesQuery.data.source} />}
+                {source && <SourceBadge source={source} />}
               </div>
-              <p className="mt-3 text-sm text-ink-400">You'll receive about</p>
-              <p className="font-mono text-2xl font-semibold" aria-live="polite">
-                {estimate !== null ? formatMoney(estimate, to) : formatMoney(0, to)}
+              <p className="mt-3 text-sm text-ink-400">{mode === 'market' ? "You'll receive about" : 'If it fills at your target, you receive at least'}</p>
+              <p className="font-mono text-2xl font-semibold break-all" aria-live="polite">
+                {formatMoney(estimate ?? 0, to)}
               </p>
             </>
           )}
         </div>
 
-        {convert.isError && Object.keys(fieldErrors).length === 0 && <ErrorAlert>{convert.error.message}</ErrorAlert>}
+        {active.isError && Object.keys(fieldErrors).length === 0 && <ErrorAlert>{active.error.message}</ErrorAlert>}
 
         {lastTrade && lastTrade.fromAmount !== null && lastTrade.fromCurrency && (
           <div role="status" className="flex items-start gap-2 rounded-lg border border-accent-400/30 bg-accent-500/10 p-3 text-sm text-accent-200">
@@ -210,11 +289,47 @@ function ConvertForm({ wallet, initialFrom, initialTo }: { wallet: WalletRespons
             </span>
           </div>
         )}
+        {lastOrder && (
+          <div role="status" className="flex items-start gap-2 rounded-lg border border-accent-400/30 bg-accent-500/10 p-3 text-sm text-accent-200">
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent-300" aria-hidden />
+            <span>
+              Limit order placed: {formatMoney(lastOrder.amount, lastOrder.from)} → {lastOrder.to} at {formatRate(lastOrder.targetRate)} or better.
+              It's checked every 10 seconds.
+            </span>
+          </div>
+        )}
 
-        <Button type="submit" loading={convert.isPending} disabled={!amountValid || tooMuch || rate === undefined}>
-          Convert {from} → {to}
+        <Button type="submit" loading={active.isPending} disabled={!canSubmit}>
+          {mode === 'market' ? `Convert ${from} → ${to}` : `Place limit order ${from} → ${to}`}
         </Button>
       </form>
+    </Card>
+  )
+}
+
+function OpenOrders() {
+  const ordersQuery = useOrders()
+  const open = ordersQuery.data?.filter((o) => o.status === 'OPEN') ?? []
+
+  return (
+    <Card className="p-0">
+      <div className="flex items-center justify-between border-b border-ink-800 px-6 py-4">
+        <h2 className="font-semibold">
+          Open orders {open.length > 0 && <span className="text-ink-400">({open.length})</span>}
+        </h2>
+        <Link to="/orders" className="text-sm font-medium text-accent-300 hover:underline">
+          All orders
+        </Link>
+      </div>
+      {ordersQuery.isPending ? (
+        <div className="m-6 h-16 animate-pulse rounded-lg bg-ink-800" />
+      ) : ordersQuery.isError ? (
+        <div className="p-6">
+          <ErrorAlert>{ordersQuery.error.message}</ErrorAlert>
+        </div>
+      ) : (
+        <OrderList orders={open} empty="No open orders. Switch to “Limit order” to buy or sell automatically at a target rate." />
+      )}
     </Card>
   )
 }

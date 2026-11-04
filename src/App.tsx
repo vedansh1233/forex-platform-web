@@ -4,6 +4,8 @@ import { RequireAuth, RequireGuest } from './components/RouteGuards'
 import { DashboardPage } from './pages/DashboardPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { MarketsPage } from './pages/MarketsPage'
+import { OrdersPage } from './pages/OrdersPage'
+import { ToolsPage } from './pages/ToolsPage'
 import { TradePage } from './pages/TradePage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -27,6 +29,8 @@ const router = createBrowserRouter([
           { path: '/', element: <DashboardPage /> },
           { path: '/markets', element: <MarketsPage /> },
           { path: '/trade', element: <TradePage /> },
+          { path: '/orders', element: <OrdersPage /> },
+          { path: '/tools', element: <ToolsPage /> },
           { path: '/history', element: <HistoryPage /> },
           { path: '/profile', element: <ProfilePage /> },
         ],

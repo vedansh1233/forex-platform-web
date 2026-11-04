@@ -1,10 +1,17 @@
 import { request } from './client'
 import type {
+  AlertResponse,
+  AssetResponse,
   AuthResponse,
   ConversionResponse,
   ConvertRequest,
+  CreateAlertRequest,
+  CryptoPricesResponse,
   LoginRequest,
+  OrderResponse,
   PageResponse,
+  PlaceOrderRequest,
+  QuoteResponse,
   RateHistoryResponse,
   RatesResponse,
   RegisterRequest,
@@ -30,6 +37,21 @@ export const api = {
   rates: (base: string) => request<RatesResponse>('GET', `/api/rates?${qs({ base })}`),
   rateHistory: (base: string, quote: string, days: number) =>
     request<RateHistoryResponse>('GET', `/api/rates/history?${qs({ base, quote, days })}`),
+
+  assets: () => request<AssetResponse[]>('GET', '/api/market/assets'),
+  quote: (from: string, to: string) => request<QuoteResponse>('GET', `/api/market/quote?${qs({ from, to })}`),
+  cryptoPrices: () => request<CryptoPricesResponse>('GET', '/api/market/crypto'),
+  cryptoHistory: (symbol: string, days: number) =>
+    request<RateHistoryResponse>('GET', `/api/market/crypto/history?${qs({ symbol, days })}`),
+
+  orders: () => request<OrderResponse[]>('GET', '/api/orders'),
+  placeOrder: (body: PlaceOrderRequest) => request<OrderResponse>('POST', '/api/orders', body),
+  cancelOrder: (id: number) => request<OrderResponse>('POST', `/api/orders/${id}/cancel`),
+
+  alerts: () => request<AlertResponse[]>('GET', '/api/alerts'),
+  createAlert: (body: CreateAlertRequest) => request<AlertResponse>('POST', '/api/alerts', body),
+  cancelAlert: (id: number) => request<AlertResponse>('POST', `/api/alerts/${id}/cancel`),
+  markAlertsSeen: () => request<void>('POST', '/api/alerts/mark-seen'),
 }
 
 /** Query keys shared across pages so caches stay consistent after mutations. */
@@ -39,4 +61,9 @@ export const queryKeys = {
   transactionsPage: (page: number, size: number) => ['transactions', page, size] as const,
   rates: (base: string) => ['rates', base] as const,
   history: (base: string, quote: string, days: number) => ['history', base, quote, days] as const,
+  quote: (from: string, to: string) => ['quote', from, to] as const,
+  crypto: ['crypto'] as const,
+  cryptoHistory: (symbol: string, days: number) => ['crypto-history', symbol, days] as const,
+  orders: ['orders'] as const,
+  alerts: ['alerts'] as const,
 }

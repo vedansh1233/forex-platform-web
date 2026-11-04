@@ -1,4 +1,10 @@
+import { isCrypto } from './currencies'
+
+/** "$1,234.56", "€90.12", or "0.01234567 BTC" for crypto. */
 export function formatMoney(amount: number, currency: string): string {
+  if (isCrypto(currency)) {
+    return `${formatAmount(amount, currency)} ${currency}`
+  }
   try {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
   } catch {
@@ -6,8 +12,14 @@ export function formatMoney(amount: number, currency: string): string {
   }
 }
 
-/** Plain amount with the currency's usual decimals (JPY has none), no symbol. */
+/**
+ * Plain amount, no symbol: the currency's usual decimals (JPY has none), or for crypto up to
+ * 8 decimals with trailing zeros trimmed (at least 2).
+ */
 export function formatAmount(amount: number, currency: string): string {
+  if (isCrypto(currency)) {
+    return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })
+  }
   try {
     const digits = new Intl.NumberFormat('en-US', { style: 'currency', currency }).resolvedOptions()
       .maximumFractionDigits
@@ -17,10 +29,22 @@ export function formatAmount(amount: number, currency: string): string {
   }
 }
 
-/** FX rate with sensible precision: 4 decimals for most pairs, 2 for large values (e.g. USD/JPY). */
+/**
+ * Rate with sensible precision: 2 decimals for large values (USD/JPY, BTC/USD), 4 for most FX
+ * pairs, and 4 significant digits for tiny ones (USD/BTC = 0.00001428).
+ */
 export function formatRate(rate: number): string {
+  if (rate !== 0 && Math.abs(rate) < 0.01) {
+    return rate.toLocaleString('en-US', { maximumSignificantDigits: 4 })
+  }
   const decimals = rate >= 100 ? 2 : 4
   return rate.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+
+/** Crypto price in USD: "$78,283.98", or "$1.2834" under $10 so small moves stay visible. */
+export function formatUsdPrice(price: number): string {
+  const decimals = price >= 10 ? 2 : 4
+  return price.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
 export function formatPercent(value: number): string {

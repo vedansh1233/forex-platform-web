@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { api, queryKeys } from '../api/endpoints'
+import { CryptoMarkets } from '../components/CryptoMarkets'
 import { RateChart } from '../components/RateChart'
 import { SourceBadge } from '../components/SourceBadge'
 import { Card, ErrorAlert, Segmented, Select } from '../components/ui'
@@ -17,7 +18,36 @@ const RANGES = [
   { value: 365, label: '1Y' },
 ]
 
+type View = 'forex' | 'crypto'
+
 export function MarketsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view: View = searchParams.get('view') === 'crypto' ? 'crypto' : 'forex'
+
+  return (
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm text-ink-400">Markets</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{view === 'crypto' ? 'Crypto prices' : 'Exchange rates'}</h1>
+        </div>
+        <Segmented
+          label="Market"
+          options={[
+            { value: 'forex', label: 'Forex' },
+            { value: 'crypto', label: 'Crypto' },
+          ]}
+          value={view}
+          onChange={(next) => setSearchParams(next === 'crypto' ? { view: 'crypto' } : {}, { replace: true })}
+        />
+      </header>
+
+      {view === 'crypto' ? <CryptoMarkets /> : <ForexMarkets />}
+    </div>
+  )
+}
+
+function ForexMarkets() {
   const [base, setBase] = useState<string>('EUR')
   const [quote, setQuote] = useState<string>('USD')
   const [days, setDays] = useState(30)
@@ -31,13 +61,11 @@ export function MarketsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm text-ink-400">Markets</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Exchange rates</h1>
+      {ratesQuery.data && (
+        <div className="flex justify-end">
+          <SourceBadge source={ratesQuery.data.source} date={ratesQuery.data.date} />
         </div>
-        {ratesQuery.data && <SourceBadge source={ratesQuery.data.source} date={ratesQuery.data.date} />}
-      </header>
+      )}
 
       <PairChart base={base} quote={quote} days={days} onDaysChange={setDays} />
 

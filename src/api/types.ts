@@ -49,8 +49,96 @@ export interface LoginRequest {
   password: string
 }
 
-/** "ECB" = live reference rates; "SIMULATED" = fallback when the live source is down */
-export type RatesSource = 'ECB' | 'SIMULATED'
+/**
+ * Where prices came from: "ECB" = live currency reference rates, "COINBASE" = live crypto prices,
+ * "SIMULATED" = fallback when the live source is down.
+ */
+export type RatesSource = 'ECB' | 'COINBASE' | 'SIMULATED'
+
+export type AssetType = 'FIAT' | 'CRYPTO'
+
+export interface AssetResponse {
+  code: string
+  name: string
+  type: AssetType
+  decimals: number
+  minAmount: number
+}
+
+export interface QuoteResponse {
+  from: string
+  to: string
+  /** Units of `to` per 1 `from` */
+  rate: number
+}
+
+export interface CryptoPrice {
+  symbol: string
+  name: string
+  priceUsd: number
+  /** Percent change over 24 hours */
+  change24h: number
+}
+
+/** GET /api/market/crypto, and every message on the /ws/prices WebSocket */
+export interface CryptoPricesResponse {
+  source: RatesSource
+  updatedAt: string // ISO instant
+  prices: CryptoPrice[]
+}
+
+export type OrderStatus = 'OPEN' | 'FILLED' | 'CANCELLED' | 'FAILED'
+
+export interface PlaceOrderRequest {
+  from: string
+  to: string
+  amount: number
+  /** Fill once 1 `from` buys at least this many `to` */
+  targetRate: number
+}
+
+export interface OrderResponse {
+  id: number
+  from: string
+  to: string
+  amount: number
+  targetRate: number
+  status: OrderStatus
+  createdAt: string
+  closedAt: string | null
+  /** Latest rate while OPEN; null otherwise */
+  currentRate: number | null
+  fillRate: number | null
+  receivedAmount: number | null
+  transactionId: number | null
+  failureReason: string | null
+}
+
+export type AlertDirection = 'ABOVE' | 'BELOW'
+export type AlertStatus = 'ACTIVE' | 'TRIGGERED' | 'CANCELLED'
+
+export interface CreateAlertRequest {
+  base: string
+  quote: string
+  direction: AlertDirection
+  targetRate: number
+}
+
+export interface AlertResponse {
+  id: number
+  base: string
+  quote: string
+  direction: AlertDirection
+  targetRate: number
+  status: AlertStatus
+  /** false for a TRIGGERED alert the user hasn't acknowledged yet */
+  seen: boolean
+  createdAt: string
+  triggeredAt: string | null
+  triggeredRate: number | null
+  /** Latest rate while ACTIVE; null otherwise */
+  currentRate: number | null
+}
 
 export interface RatesResponse {
   base: string

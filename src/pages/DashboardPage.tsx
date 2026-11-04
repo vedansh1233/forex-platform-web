@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
-import { ArrowLeftRight, CandlestickChart, Radio, Wallet } from 'lucide-react'
+import { ArrowLeftRight, CandlestickChart, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { ApiError } from '../api/client'
 import { api, queryKeys } from '../api/endpoints'
 import type { WalletResponse } from '../api/types'
 import { useAuth } from '../auth/useAuth'
+import { LivePrice, StreamIndicator } from '../components/LivePrice'
 import { TransactionAmounts, TransactionIcon } from '../components/TransactionSummary'
 import { Button, Card, ErrorAlert } from '../components/ui'
+import { useCryptoPrices } from '../hooks/useCryptoPrices'
 import { currencyName } from '../lib/currencies'
-import { formatAmount, formatDate, formatDateTime, formatLongDay, formatMoney } from '../lib/format'
+import { formatAmount, formatDate, formatDateTime, formatLongDay, formatMoney, formatPercent } from '../lib/format'
 import { transactionTitle } from '../lib/transactions'
 
 const RECENT_COUNT = 5
@@ -22,6 +24,8 @@ export function DashboardPage() {
     queryFn: api.myWallet,
     // 404 just means "no wallet yet", so don't retry it
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 2,
+    // Crypto holdings are valued at live prices, so keep the total moving
+    refetchInterval: (query) => (query.state.data ? 20_000 : false),
   })
 
   return (
@@ -31,23 +35,41 @@ export function DashboardPage() {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Welcome, {firstName}</h1>
       </header>
 
+      <CryptoTicker />
+
       <WalletSection query={walletQuery} />
 
       {walletQuery.data && <RecentActivity />}
-
-      <section aria-labelledby="roadmap-heading">
-        <h2 id="roadmap-heading" className="mb-3 text-sm font-semibold tracking-wide text-ink-400 uppercase">
-          Coming next
-        </h2>
-        <div className="flex gap-3 rounded-xl border border-dashed border-ink-700 p-4">
-          <Radio className="mt-0.5 size-5 shrink-0 text-ink-400" aria-hidden />
-          <div>
-            <h3 className="text-sm font-medium">Real-time ticker</h3>
-            <p className="mt-0.5 text-sm text-ink-400">Streaming price updates over WebSocket.</p>
-          </div>
-        </div>
-      </section>
     </div>
+  )
+}
+
+/** Live crypto prices, streamed over WebSocket. */
+function CryptoTicker() {
+  const prices = useCryptoPrices()
+  if (!prices.data) return <div className="h-[74px] animate-pulse rounded-2xl bg-ink-900" aria-label="Loading prices" />
+
+  return (
+    <section aria-label="Live crypto prices" className="rounded-2xl border border-ink-700 bg-ink-900 px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <StreamIndicator status={prices.stream} />
+        <Link to="/markets?view=crypto" className="text-xs font-medium text-accent-300 hover:underline">
+          Crypto markets
+        </Link>
+      </div>
+      <ul className="flex flex-wrap gap-x-6 gap-y-1.5">
+        {prices.data.prices.map((p) => (
+          <li key={p.symbol} className="flex shrink-0 items-baseline gap-2">
+            <span className="font-mono text-xs font-semibold text-ink-300">{p.symbol}</span>
+            <LivePrice price={p.priceUsd} className="text-sm" />
+            <span className={p.change24h >= 0 ? 'font-mono text-xs text-accent-300' : 'font-mono text-xs text-rose-300'}>
+              {formatPercent(p.change24h)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {prices.data.source === 'SIMULATED' && <p className="mt-1 text-xs text-amber-200">Simulated prices: the live crypto feed is unavailable.</p>}
+    </section>
   )
 }
 
