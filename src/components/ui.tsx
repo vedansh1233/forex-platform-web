@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { AlertCircle, Loader2 } from 'lucide-react'
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 import { useId } from 'react'
 
 // --- Button ---
@@ -71,6 +71,65 @@ export function Field({ label, error, hint, className, ...props }: FieldProps) {
           {hint}
         </p>
       ) : null}
+    </div>
+  )
+}
+
+// --- Select ---
+
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label: string
+  hideLabel?: boolean
+}
+
+export function Select({ label, hideLabel, className, children, ...props }: SelectProps) {
+  const id = useId()
+  return (
+    <div className={clsx('flex flex-col gap-1.5', className)}>
+      <label htmlFor={id} className={clsx('text-sm font-medium text-ink-300', hideLabel && 'sr-only')}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className="h-10 rounded-lg border border-ink-700 bg-ink-900 px-3 text-sm text-ink-100 focus:border-accent-400 focus:outline-none"
+        {...props}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}
+
+// --- Segmented control (e.g. chart range) ---
+
+export function Segmented<T extends string | number>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (value: T) => void
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-lg border border-ink-700 bg-ink-900 p-0.5">
+      {options.map((option) => (
+        <button
+          key={String(option.value)}
+          type="button"
+          role="radio"
+          aria-checked={option.value === value}
+          onClick={() => onChange(option.value)}
+          className={clsx(
+            'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+            option.value === value ? 'bg-ink-700 text-ink-100' : 'text-ink-400 hover:text-ink-100',
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }

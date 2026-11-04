@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { LayoutDashboard, LogOut, UserRound } from 'lucide-react'
+import { ArrowLeftRight, CandlestickChart, History, LayoutDashboard, LogOut, UserRound } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth'
 import { initials } from '../lib/format'
@@ -7,6 +7,9 @@ import { Logo } from './Logo'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/markets', label: 'Markets', icon: CandlestickChart, end: false },
+  { to: '/trade', label: 'Trade', icon: ArrowLeftRight, end: false },
+  { to: '/history', label: 'History', icon: History, end: false },
   { to: '/profile', label: 'Profile', icon: UserRound, end: false },
 ]
 
@@ -27,6 +30,8 @@ export function AppLayout() {
               key={to}
               to={to}
               end={end}
+              aria-label={label}
+              title={label}
               className={({ isActive }) =>
                 clsx(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -35,7 +40,8 @@ export function AppLayout() {
               }
             >
               <Icon className="size-4" aria-hidden />
-              <span className="hidden sm:inline">{label}</span>
+              {/* Icons only in the mobile top bar; labels in the desktop sidebar */}
+              <span className="hidden md:inline">{label}</span>
             </NavLink>
           ))}
         </nav>
